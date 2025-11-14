@@ -118,11 +118,7 @@ class _AlpineAttr:
             value: Any value to convert to string for the attribute
         """
         mod_path = "".join(f".{m}" for m in self.mods)
-        if self.base:
-            key = f"{self.prefix}{self.base}{mod_path}"
-        else:
-            # For x-model modifiers where base is empty
-            key = f"{self.prefix.rstrip(':')}{mod_path}"
+        key = f"{self.prefix}{self.base}{mod_path}"
         return {key: str(value)}
     
     def mod(self, *modifiers: str) -> _AlpineAttr:
