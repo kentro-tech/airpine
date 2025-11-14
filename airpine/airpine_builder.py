@@ -103,19 +103,6 @@ def _to_js(value: Any) -> str:
     return f"'{escaped}'"
 
 
-def _dict_to_alpine_obj(d: dict) -> str:
-    """Convert Python dict to Alpine.js object notation (JavaScript).
-    
-    Uses unquoted keys and single-quoted strings to avoid HTML escaping issues.
-    Alpine.js evaluates x-data as JavaScript, so unquoted keys are valid.
-    
-    Example: {"count": 0, "name": "test"} -> "{ count: 0, name: 'test' }"
-    """
-    if not isinstance(d, dict):
-        return str(d)
-    return _to_js(d)
-
-
 @dataclass(frozen=True)
 class _AlpineAttr:
     """Immutable builder for a single Alpine directive with modifiers."""
@@ -575,7 +562,7 @@ class _DirectiveNamespace:
     
     def data(self, expr: str | dict) -> dict[str, str]:
         """Component state."""
-        value = expr if isinstance(expr, str) else _dict_to_alpine_obj(expr)
+        value = expr if isinstance(expr, str) else _to_js(expr)
         return {"x-data": value}
     
     def ref(self, name: str) -> dict[str, str]:

@@ -1,4 +1,4 @@
-"""Tests for JavaScript serializer (_to_js and _dict_to_alpine_obj)."""
+"""Tests for JavaScript serializer (_to_js)."""
 
 # Import private functions for testing
 import sys
@@ -6,7 +6,7 @@ import sys
 from airpine import RawJS
 
 sys.path.insert(0, 'airpine')
-from airpine.airpine_builder import _dict_to_alpine_obj, _to_js
+from airpine.airpine_builder import _to_js
 
 
 class TestSerializerStrings:
@@ -246,31 +246,31 @@ class TestSerializerComplex:
         assert 'function() { console.log(\'test\'); }' in result
 
 
-class TestDictToAlpineObj:
-    """Test the _dict_to_alpine_obj wrapper."""
+class TestToJsWithDicts:
+    """Test _to_js with dict values (used by x-data)."""
     
     def test_dict(self):
-        """Should delegate to _to_js for dicts."""
-        result = _dict_to_alpine_obj({"count": 0, "name": "test"})
-        assert '"count": 0' in result
-        assert '"name": "test"' in result
+        """Should convert dicts to JS objects."""
+        result = _to_js({"count": 0, "name": "test"})
+        assert "count: 0" in result
+        assert "name: 'test'" in result
     
     def test_non_dict(self):
-        """Non-dicts should return str representation."""
-        assert _dict_to_alpine_obj("plain string") == "plain string"
-        assert _dict_to_alpine_obj(42) == "42"
+        """Non-dicts should be converted properly."""
+        assert _to_js("plain string") == "'plain string'"
+        assert _to_js(42) == "42"
     
     def test_empty_dict(self):
-        result = _dict_to_alpine_obj({})
+        result = _to_js({})
         assert result == "{  }"
     
     def test_with_rawjs(self):
         """RawJS functions should work in x-data."""
-        result = _dict_to_alpine_obj({
+        result = _to_js({
             "count": 0,
             "increment": RawJS("function() { this.count++; }")
         })
-        assert '"count": 0' in result
+        assert "count: 0" in result
         assert 'function() { this.count++; }' in result
 
 
