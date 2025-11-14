@@ -1,5 +1,7 @@
 # Airpine 🏔️
 
+This is early dev. This is brainstorming, with heavy help from AI.  Before being used in real apps, it'll need a rewrite.  Which might happen, or might not!  Still exploring!
+
 **Alpine.js integration for the Air framework with excellent Python DX**
 
 Airpine provides a Pythonic, ORM-like API for working with Alpine.js directives in [Air](https://github.com/feldroy/air) applications. Get excellent IDE autocomplete, natural chained syntax, and type-safe modifiers.
