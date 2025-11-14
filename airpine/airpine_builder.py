@@ -35,8 +35,9 @@ Example:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from air.tags.utils import clean_html_attr_key
 
@@ -599,7 +600,7 @@ class _DirectiveNamespace:
         """Loop over items."""
         return {"x-for": expr}
     
-    def data(self, expr: str | dict) -> dict[str, str]:
+    def data(self, expr: str | dict[str, Any]) -> dict[str, str]:
         """Component state."""
         value = expr if isinstance(expr, str) else _to_js(expr)
         return {"x-data": value}
@@ -679,7 +680,7 @@ class _DirectiveNamespace:
         return _TransitionNamespace()
     
     # Fallback for custom directives
-    def __getattr__(self, name: str) -> callable:
+    def __getattr__(self, name: str) -> Callable[[str], dict[str, str]]:
         directive = f"x-{clean_html_attr_key(name)}"
         def _setter(expr: str) -> dict[str, str]:
             return {directive: expr}
@@ -695,7 +696,7 @@ class AlpineBuilder:
     @staticmethod
     def merge(*dicts: dict[str, str]) -> dict[str, str]:
         """Merge multiple attribute dicts."""
-        result = {}
+        result: dict[str, str] = {}
         for d in dicts:
             result |= d
         return result
