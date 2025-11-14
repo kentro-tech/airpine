@@ -3,8 +3,6 @@
 Provides an ORM-like chained builder API for Alpine.js directives with excellent
 IDE autocomplete support and natural Python syntax.
 
-This is the recommended API for EidosUI and general Air + Alpine.js usage.
-
 Features:
     - Natural chained syntax: Alpine.at.click.prevent.once()
     - Excellent IDE autocomplete on events, directives, and modifiers
@@ -36,10 +34,10 @@ Example:
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Dict, Tuple
+
 import json
-import html
+from dataclasses import dataclass
+from typing import Any
 
 
 class RawJS:
@@ -62,46 +60,66 @@ class RawJS:
 
 
 def _hyphenate(name: str) -> str:
-    """Convert Python snake_case to HTML hyphen-case."""
-    return name.replace("_", "-")
+    """Convert Python snake_case to HTML hyphen-case.
+    
+    Removes trailing underscores (e.g., class_) before converting.
+    """
+    return name.rstrip("_").replace("_", "-")
+
+
+def _to_js(value: Any) -> str:
+    """Convert Python value to Alpine.js-compatible JavaScript.
+    
+    Uses unquoted object keys and single-quoted strings to avoid HTML escaping issues.
+    Alpine.js evaluates x-data as JavaScript, not JSON, so this is valid and avoids
+    double-escaping when Air renders to HTML attributes.
+    
+    Args:
+        value: Any Python value to convert
+        
+    Returns:
+        Valid JavaScript expression as string (Alpine.js compatible)
+    """
+    if isinstance(value, RawJS):
+        # Raw JavaScript - strip newlines for valid HTML attributes
+        return value.code.replace("\n", " ").replace("\r", "")
+    if isinstance(value, str):
+        # Use single quotes and escape them, avoid double quotes to prevent HTML escaping issues
+        escaped = value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "")
+        return f"'{escaped}'"
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, (int, float)):
+        return str(value)
+    if value is None:
+        return 'null'
+    if isinstance(value, (list, tuple)):
+        items = [_to_js(item) for item in value]
+        return "[" + ", ".join(items) + "]"
+    if isinstance(value, dict):
+        pairs = []
+        for k, v in value.items():
+            # Unquoted keys (valid JS, avoids HTML escaping)
+            # Convert hyphens and special chars in keys to underscores for valid identifiers
+            key_str = str(k).replace("-", "_").replace(" ", "_")
+            pairs.append(f"{key_str}: {_to_js(v)}")
+        return "{ " + ", ".join(pairs) + " }"
+    # Fallback: convert to string with single quotes
+    escaped = str(value).replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{escaped}'"
 
 
 def _dict_to_alpine_obj(d: dict) -> str:
-    """Convert Python dict to Alpine.js object notation (JavaScript, not JSON).
+    """Convert Python dict to Alpine.js object notation (JavaScript).
     
-    Alpine accepts JavaScript object notation which doesn't require quotes around keys
-    and uses single quotes for strings, avoiding HTML attribute escaping issues.
+    Uses unquoted keys and single-quoted strings to avoid HTML escaping issues.
+    Alpine.js evaluates x-data as JavaScript, so unquoted keys are valid.
     
     Example: {"count": 0, "name": "test"} -> "{ count: 0, name: 'test' }"
     """
     if not isinstance(d, dict):
         return str(d)
-    
-    pairs = []
-    for key, value in d.items():
-        if isinstance(value, dict):
-            val_str = _dict_to_alpine_obj(value)
-        elif isinstance(value, RawJS):
-            # Raw JavaScript - don't quote, just clean up whitespace
-            val_str = str(value).replace("\n", " ").replace("\r", "")
-        elif isinstance(value, str):
-            # Escape HTML entities, remove newlines, and use single quotes for Alpine.js compatibility
-            escaped = html.escape(value, quote=False).replace("'", "&apos;").replace("\n", " ").replace("\r", "")
-            val_str = f"'{escaped}'"
-        elif isinstance(value, bool):
-            val_str = 'true' if value else 'false'
-        elif isinstance(value, (int, float)):
-            val_str = str(value)
-        elif isinstance(value, list):
-            # Convert to JSON and replace double quotes with single quotes
-            # JavaScript/Alpine.js accepts both, but single quotes avoid HTML escaping
-            val_str = json.dumps(value).replace('"', "'")
-        else:
-            val_str = str(value)
-        
-        pairs.append(f"{key}: {val_str}")
-    
-    return "{ " + ", ".join(pairs) + " }"
+    return _to_js(d)
 
 
 @dataclass(frozen=True)
@@ -110,29 +128,38 @@ class _AlpineAttr:
     
     prefix: str  # "@", "x-", or "x-bind:"
     base: str    # "click", "text", "href", etc.
-    mods: Tuple[str, ...] = ()
+    mods: tuple[str, ...] = ()
     
-    def __call__(self, value: str) -> Dict[str, str]:
-        """Generate the final attribute dict."""
+    def __call__(self, value: Any) -> dict[str, str]:
+        """Generate the final attribute dict.
+        
+        Args:
+            value: Any value to convert to string for the attribute
+        """
         mod_path = "".join(f".{m}" for m in self.mods)
         if self.base:
             key = f"{self.prefix}{self.base}{mod_path}"
         else:
             # For x-model modifiers where base is empty
             key = f"{self.prefix.rstrip(':')}{mod_path}"
-        return {key: value}
+        return {key: str(value)}
     
     def mod(self, *modifiers: str) -> _AlpineAttr:
         """Add custom modifiers."""
-        return _AlpineAttr(self.prefix, self.base, self.mods + tuple(_hyphenate(m) for m in modifiers))
+        new_mods = self.mods + tuple(_hyphenate(m) for m in modifiers)
+        return _AlpineAttr(self.prefix, self.base, new_mods)
     
     # Time-based modifiers
-    def debounce(self, ms: int) -> _AlpineAttr:
-        """Add debounce modifier with milliseconds."""
+    def debounce(self, ms: int | None = None) -> _AlpineAttr:
+        """Add debounce modifier (default 250ms if no ms provided)."""
+        if ms is None:
+            return self.mod("debounce")
         return self.mod("debounce", f"{ms}ms")
     
-    def throttle(self, ms: int) -> _AlpineAttr:
-        """Add throttle modifier with milliseconds."""
+    def throttle(self, ms: int | None = None) -> _AlpineAttr:
+        """Add throttle modifier (default 250ms if no ms provided)."""
+        if ms is None:
+            return self.mod("throttle")
         return self.mod("throttle", f"{ms}ms")
     
     # Common event modifiers (typed for IDE completion)
@@ -251,6 +278,41 @@ class _AlpineAttr:
     def cmd(self) -> _AlpineAttr:
         """Alias for meta."""
         return self.mod("cmd")
+    
+    # Navigation keys
+    @property
+    def backspace(self) -> _AlpineAttr:
+        """Backspace key."""
+        return self.mod("backspace")
+    
+    @property
+    def delete(self) -> _AlpineAttr:
+        """Delete key."""
+        return self.mod("delete")
+    
+    @property
+    def home(self) -> _AlpineAttr:
+        """Home key."""
+        return self.mod("home")
+    
+    @property
+    def end(self) -> _AlpineAttr:
+        """End key."""
+        return self.mod("end")
+    
+    @property
+    def page_up(self) -> _AlpineAttr:
+        """Page up key."""
+        return self.mod("page-up")
+    
+    @property
+    def page_down(self) -> _AlpineAttr:
+        """Page down key."""
+        return self.mod("page-down")
+    
+    def key(self, name: str) -> _AlpineAttr:
+        """Arbitrary key name (e.g., 'f1', 'f12')."""
+        return self.mod(name.lower())
 
 
 class _EventNamespace:
@@ -353,7 +415,7 @@ class _EventNamespace:
 
 
 class _BindNamespace:
-    """Namespace for x-bind:* attributes."""
+    """Namespace for x-bind:* attributes."""  
     
     # Common bound attributes
     @property
@@ -413,7 +475,7 @@ class _BindNamespace:
 class _ModelNamespace:
     """Namespace for x-model with modifiers."""
     
-    def __call__(self, expr: str) -> Dict[str, str]:
+    def __call__(self, expr: str) -> dict[str, str]:
         """Plain x-model."""
         return {"x-model": expr}
     
@@ -432,71 +494,153 @@ class _ModelNamespace:
         """Trim whitespace."""
         return _AlpineAttr("x-model", "", ("trim",))
     
-    def debounce(self, ms: int) -> _AlpineAttr:
-        """Debounce updates."""
+    @property
+    def boolean(self) -> _AlpineAttr:
+        """Convert to boolean."""
+        return _AlpineAttr("x-model", "", ("boolean",))
+    
+    @property
+    def fill(self) -> _AlpineAttr:
+        """Use input's value attribute to initialize empty data."""
+        return _AlpineAttr("x-model", "", ("fill",))
+    
+    def debounce(self, ms: int | None = None) -> _AlpineAttr:
+        """Debounce updates (default 250ms if no ms provided)."""
+        if ms is None:
+            return _AlpineAttr("x-model", "", ("debounce",))
         return _AlpineAttr("x-model", "", ("debounce", f"{ms}ms"))
     
-    def throttle(self, ms: int) -> _AlpineAttr:
-        """Throttle updates."""
+    def throttle(self, ms: int | None = None) -> _AlpineAttr:
+        """Throttle updates (default 250ms if no ms provided)."""
+        if ms is None:
+            return _AlpineAttr("x-model", "", ("throttle",))
         return _AlpineAttr("x-model", "", ("throttle", f"{ms}ms"))
+
+
+class _TransitionNamespace:
+    """Namespace for x-transition variants."""
+    
+    def __call__(self, expr: str = "") -> dict[str, str]:
+        """Generic transition."""
+        return {"x-transition": expr}
+    
+    @property
+    def enter(self) -> _AlpineAttr:
+        """Transition enter phase."""
+        return _AlpineAttr("x-transition:", "enter")
+    
+    @property
+    def enter_start(self) -> _AlpineAttr:
+        """Transition enter start state."""
+        return _AlpineAttr("x-transition:", "enter-start")
+    
+    @property
+    def enter_end(self) -> _AlpineAttr:
+        """Transition enter end state."""
+        return _AlpineAttr("x-transition:", "enter-end")
+    
+    @property
+    def leave(self) -> _AlpineAttr:
+        """Transition leave phase."""
+        return _AlpineAttr("x-transition:", "leave")
+    
+    @property
+    def leave_start(self) -> _AlpineAttr:
+        """Transition leave start state."""
+        return _AlpineAttr("x-transition:", "leave-start")
+    
+    @property
+    def leave_end(self) -> _AlpineAttr:
+        """Transition leave end state."""
+        return _AlpineAttr("x-transition:", "leave-end")
 
 
 class _DirectiveNamespace:
     """Namespace for x-* directives."""
     
     # Common directives as callable methods
-    def text(self, expr: str) -> Dict[str, str]:
+    def text(self, expr: str) -> dict[str, str]:
         """Set text content."""
         return {"x-text": expr}
     
-    def html(self, expr: str) -> Dict[str, str]:
+    def html(self, expr: str) -> dict[str, str]:
         """Set HTML content."""
         return {"x-html": expr}
     
-    def show(self, expr: str) -> Dict[str, str]:
+    def show(self, expr: str) -> dict[str, str]:
         """Conditionally show element (CSS)."""
         return {"x-show": expr}
     
-    def if_(self, expr: str) -> Dict[str, str]:
+    def if_(self, expr: str) -> dict[str, str]:
         """Conditionally render element (DOM)."""
         return {"x-if": expr}
     
-    def for_(self, expr: str) -> Dict[str, str]:
+    def for_(self, expr: str) -> dict[str, str]:
         """Loop over items."""
         return {"x-for": expr}
     
-    def data(self, expr: str | dict) -> Dict[str, str]:
+    def data(self, expr: str | dict) -> dict[str, str]:
         """Component state."""
         value = expr if isinstance(expr, str) else _dict_to_alpine_obj(expr)
         return {"x-data": value}
     
-    def ref(self, name: str) -> Dict[str, str]:
+    def ref(self, name: str) -> dict[str, str]:
         """Reference to element."""
         return {"x-ref": name}
     
-    def init(self, expr: str) -> Dict[str, str]:
+    def init(self, expr: str) -> dict[str, str]:
         """Initialize component."""
         return {"x-init": expr}
     
-    def cloak(self) -> Dict[str, bool]:
+    def cloak(self) -> dict[str, str]:
         """Hide until Alpine loads."""
-        return {"x-cloak": True}
+        return {"x-cloak": ""}
     
-    def ignore(self) -> Dict[str, bool]:
-        """Ignore this element."""
-        return {"x-ignore": True}
+    def ignore(self) -> dict[str, str]:
+        """Ignore this element and children."""
+        return {"x-ignore": ""}
     
-    def transition(self, expr: str = "") -> Dict[str, str]:
-        """Transition directive."""
-        return {"x-transition": expr}
+    def ignore_self(self) -> dict[str, str]:
+        """Ignore only this element, not children."""
+        return {"x-ignore.self": ""}
     
-    def effect(self, expr: str) -> Dict[str, str]:
-        """Side effect that re-runs."""
+    def key(self, expr: str) -> dict[str, str]:
+        """Unique key for x-for items (for efficient DOM updates)."""
+        return {"x-key": expr}
+    
+    def id(self, expr: str | list[str]) -> dict[str, str]:
+        """Generate scoped IDs for accessibility."""
+        value = expr if isinstance(expr, str) else _to_js(expr)
+        return {"x-id": value}
+    
+    def modelable(self, expr: str) -> dict[str, str]:
+        """Make component property bindable with x-model."""
+        return {"x-modelable": expr}
+    
+    def effect(self, expr: str) -> dict[str, str]:
+        """Side effect that re-runs when dependencies change."""
         return {"x-effect": expr}
     
-    def teleport(self, target: str) -> Dict[str, str]:
-        """Teleport to selector."""
+    def teleport(self, target: str) -> dict[str, str]:
+        """Teleport content to selector."""
         return {"x-teleport": target}
+    
+    # Plugin directives (require corresponding Alpine plugins)
+    def intersect(self, expr: str) -> dict[str, str]:
+        """Intersection observer (requires Alpine intersect plugin)."""
+        return {"x-intersect": expr}
+    
+    def mask(self, expr: str) -> dict[str, str]:
+        """Input masking (requires Alpine mask plugin)."""
+        return {"x-mask": expr}
+    
+    def trap(self, expr: str) -> dict[str, str]:
+        """Focus trapping (requires Alpine focus plugin)."""
+        return {"x-trap": expr}
+    
+    def collapse(self) -> dict[str, str]:
+        """Collapse animation (requires Alpine collapse plugin)."""
+        return {"x-collapse": ""}
     
     # Sub-namespaces
     @property
@@ -509,10 +653,15 @@ class _DirectiveNamespace:
         """Two-way binding namespace."""
         return _ModelNamespace()
     
+    @property
+    def transition(self) -> _TransitionNamespace:
+        """Transition namespace."""
+        return _TransitionNamespace()
+    
     # Fallback for custom directives
     def __getattr__(self, name: str) -> callable:
         directive = f"x-{_hyphenate(name)}"
-        def _setter(expr: str) -> Dict[str, str]:
+        def _setter(expr: str) -> dict[str, str]:
             return {directive: expr}
         return _setter
 
@@ -524,7 +673,7 @@ class AlpineBuilder:
     x = _DirectiveNamespace()
     
     @staticmethod
-    def merge(*dicts: Dict[str, str]) -> Dict[str, str]:
+    def merge(*dicts: dict[str, str]) -> dict[str, str]:
         """Merge multiple attribute dicts."""
         result = {}
         for d in dicts:
