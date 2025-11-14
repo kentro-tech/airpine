@@ -35,12 +35,13 @@ Example:
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any
 
+from air.tags.utils import clean_html_attr_key
 
-class RawJS:
+
+class RawJS(str):
     """Wrapper for raw JavaScript expressions that should not be quoted.
     
     Use this when you need to pass JavaScript functions or expressions
@@ -52,19 +53,7 @@ class RawJS:
             "increment": RawJS("function() { this.count++ }")
         })
     """
-    def __init__(self, code: str):
-        self.code = code
-    
-    def __str__(self) -> str:
-        return self.code
-
-
-def _hyphenate(name: str) -> str:
-    """Convert Python snake_case to HTML hyphen-case.
-    
-    Removes trailing underscores (e.g., class_) before converting.
-    """
-    return name.rstrip("_").replace("_", "-")
+    pass
 
 
 def _to_js(value: Any) -> str:
@@ -82,10 +71,15 @@ def _to_js(value: Any) -> str:
     """
     if isinstance(value, RawJS):
         # Raw JavaScript - strip newlines for valid HTML attributes
-        return value.code.replace("\n", " ").replace("\r", "")
+        return value.replace("\n", " ").replace("\r", "")
     if isinstance(value, str):
-        # Use single quotes and escape them, avoid double quotes to prevent HTML escaping issues
-        escaped = value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "")
+        # Use single quotes and escape them
+        escaped = (
+            value.replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\n", "\\n")
+            .replace("\r", "")
+        )
         return f"'{escaped}'"
     if isinstance(value, bool):
         return 'true' if value else 'false'
@@ -146,7 +140,7 @@ class _AlpineAttr:
     
     def mod(self, *modifiers: str) -> _AlpineAttr:
         """Add custom modifiers."""
-        new_mods = self.mods + tuple(_hyphenate(m) for m in modifiers)
+        new_mods = self.mods + tuple(clean_html_attr_key(m) for m in modifiers)
         return _AlpineAttr(self.prefix, self.base, new_mods)
     
     # Time-based modifiers
@@ -407,7 +401,7 @@ class _EventNamespace:
     # Fallback for custom events
     def __getattr__(self, name: str) -> _AlpineAttr:
         """Support custom events via attribute access."""
-        return _AlpineAttr("@", _hyphenate(name))
+        return _AlpineAttr("@", clean_html_attr_key(name))
     
     def __getitem__(self, event_name: str) -> _AlpineAttr:
         """Support exact event names with special characters."""
@@ -465,7 +459,7 @@ class _BindNamespace:
     
     # Fallback for any attribute
     def __getattr__(self, name: str) -> _AlpineAttr:
-        return _AlpineAttr("x-bind:", _hyphenate(name))
+        return _AlpineAttr("x-bind:", clean_html_attr_key(name))
     
     def __getitem__(self, attr_name: str) -> _AlpineAttr:
         """Support exact attribute names."""
@@ -660,7 +654,7 @@ class _DirectiveNamespace:
     
     # Fallback for custom directives
     def __getattr__(self, name: str) -> callable:
-        directive = f"x-{_hyphenate(name)}"
+        directive = f"x-{clean_html_attr_key(name)}"
         def _setter(expr: str) -> dict[str, str]:
             return {directive: expr}
         return _setter

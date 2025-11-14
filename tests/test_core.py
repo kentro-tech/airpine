@@ -1,7 +1,7 @@
 """Core functionality tests for Airpine with Alpine.js-compatible output."""
 
 from airpine import Alpine, RawJS
-from airpine.airpine_builder import _to_js, _dict_to_alpine_obj
+from airpine.airpine_builder import _to_js
 
 
 def test_serializer_alpine_format():

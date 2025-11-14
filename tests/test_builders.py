@@ -227,29 +227,32 @@ class TestDictMerging:
         assert result == {"@click": "second()"}
 
 
-class TestHyphenateFunction:
-    """Test _hyphenate utility."""
+class TestCleanHtmlAttrKey:
+    """Test clean_html_attr_key utility from Air."""
     
     def test_trailing_underscore_removal(self):
-        """Trailing underscores should be removed."""
-        from airpine.airpine_builder import _hyphenate
+        """Trailing underscores should be handled via special cases."""
+        from air.tags.utils import clean_html_attr_key
         
-        assert _hyphenate("class_") == "class"
-        assert _hyphenate("for_") == "for"
-        assert _hyphenate("id_") == "id"
+        assert clean_html_attr_key("class_") == "class"
+        assert clean_html_attr_key("for_") == "for"
+        assert clean_html_attr_key("id_") == "id"
+        assert clean_html_attr_key("as_") == "as"
+        assert clean_html_attr_key("async_") == "async"
     
     def test_internal_underscores(self):
         """Internal underscores should become hyphens."""
-        from airpine.airpine_builder import _hyphenate
+        from air.tags.utils import clean_html_attr_key
         
-        assert _hyphenate("data_value") == "data-value"
-        assert _hyphenate("hx_post") == "hx-post"
+        assert clean_html_attr_key("data_value") == "data-value"
+        assert clean_html_attr_key("hx_post") == "hx-post"
     
-    def test_combined(self):
-        """Both trailing and internal underscores."""
-        from airpine.airpine_builder import _hyphenate
+    def test_leading_underscores(self):
+        """Leading underscores should be removed."""
+        from air.tags.utils import clean_html_attr_key
         
-        assert _hyphenate("some_attr_") == "some-attr"
+        assert clean_html_attr_key("_private") == "private"
+        assert clean_html_attr_key("__dunder") == "dunder"
 
 
 class TestAnyValueSupport:
