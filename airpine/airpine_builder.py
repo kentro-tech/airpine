@@ -105,7 +105,21 @@ def _to_js(value: Any) -> str:
 
 @dataclass(frozen=True)
 class _AlpineAttr:
-    """Immutable builder for a single Alpine directive with modifiers."""
+    """Immutable builder for a single Alpine directive with modifiers.
+    
+    This is the core builder class that accumulates modifiers and generates
+    the final attribute dictionary when called.
+    
+    Example:
+        # Start with event
+        attr = _AlpineAttr("@", "click")
+        
+        # Chain modifiers
+        attr = attr.prevent.once
+        
+        # Generate final attribute
+        result = attr("save()")  # {"@click.prevent.once": "save()"}
+    """
     
     prefix: str  # "@", "x-", or "x-bind:"
     base: str    # "click", "text", "href", etc.
@@ -119,7 +133,7 @@ class _AlpineAttr:
         """
         mod_path = "".join(f".{m}" for m in self.mods)
         key = f"{self.prefix}{self.base}{mod_path}"
-        return {key: str(value)}
+        return {key: value}
     
     def mod(self, *modifiers: str) -> _AlpineAttr:
         """Add custom modifiers."""
@@ -293,7 +307,28 @@ class _AlpineAttr:
 
 
 class _EventNamespace:
-    """Namespace for @event handlers with tab completion."""
+    """Namespace for Alpine.js @event handlers with tab completion support.
+    This class provides a convenient way to create Alpine.js event handler attributes
+    with IDE autocomplete support for common DOM events, while still allowing custom
+    events through dynamic attribute access.
+    Usage:
+        >>> # Using predefined events with autocomplete
+        >>> event.click  # Returns _AlpineAttr("@", "click")
+        >>> event.submit  # Returns _AlpineAttr("@", "submit")
+        >>> event.keydown  # Returns _AlpineAttr("@", "keydown")
+        >>> # Using custom events via attribute access
+        >>> event.my_custom_event  # Returns _AlpineAttr("@", "my-custom-event")
+        >>> # Using events with special characters via indexing
+        >>> event["custom:event"]  # Returns _AlpineAttr("@", "custom:event")
+        >>> # Common pattern in Alpine.js templates
+        >>> button(event.click="handleClick()")
+        >>> form(event.submit.prevent="submitForm()")
+        >>> input_(event.input="search = $event.target.value")
+    The class provides properties for common DOM events (click, input, change, etc.)
+    and falls back to dynamic attribute access for custom events. Event names accessed
+    via attribute are automatically cleaned (e.g., underscores to hyphens), while
+    bracket notation preserves the exact event name.
+    """
     
     # Common DOM events (typed properties for IDE completion)
     @property
@@ -533,7 +568,15 @@ class _TransitionNamespace:
 
 
 class _DirectiveNamespace:
-    """Namespace for x-* directives."""
+    """Alpine.js x-* directives for component state and behavior.
+    
+    Example:
+        Alpine.x.data({"count": 0})  # {"x-data": "{ count: 0 }"}
+        Alpine.x.show("open")  # {"x-show": "open"}
+        Alpine.x.text("message")  # {"x-text": "message"}
+        Alpine.x.for_("item in items")  # {"x-for": "item in items"}
+        Alpine.x.if_("visible")  # {"x-if": "visible"}
+    """
     
     # Common directives as callable methods
     def text(self, expr: str) -> dict[str, str]:
