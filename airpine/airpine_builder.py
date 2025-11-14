@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from air.tags.utils import clean_html_attr_key
 
@@ -579,105 +579,90 @@ class _DirectiveNamespace:
         Alpine.x.if_("visible")  # {"x-if": "visible"}
     """
     
-    # Common directives as callable methods
-    def text(self, expr: str) -> dict[str, str]:
-        """Set text content."""
-        return {"x-text": expr}
-    
-    def html(self, expr: str) -> dict[str, str]:
-        """Set HTML content."""
-        return {"x-html": expr}
-    
-    def show(self, expr: str) -> dict[str, str]:
-        """Conditionally show element (CSS)."""
-        return {"x-show": expr}
-    
-    def if_(self, expr: str) -> dict[str, str]:
-        """Conditionally render element (DOM)."""
-        return {"x-if": expr}
-    
-    def for_(self, expr: str) -> dict[str, str]:
-        """Loop over items."""
-        return {"x-for": expr}
+    # Directives in official Alpine.js order
+    # https://alpinejs.dev/directives
     
     def data(self, expr: str | dict[str, Any]) -> dict[str, str]:
-        """Component state."""
+        """x-data: Component state."""
         value = expr if isinstance(expr, str) else _to_js(expr)
         return {"x-data": value}
     
-    def ref(self, name: str) -> dict[str, str]:
-        """Reference to element."""
-        return {"x-ref": name}
-    
     def init(self, expr: str) -> dict[str, str]:
-        """Initialize component."""
+        """x-init: Initialize component."""
         return {"x-init": expr}
     
-    def cloak(self) -> dict[str, str]:
-        """Hide until Alpine loads."""
-        return {"x-cloak": ""}
+    def show(self, expr: str) -> dict[str, str]:
+        """x-show: Conditionally show element (CSS)."""
+        return {"x-show": expr}
     
-    def ignore(self) -> dict[str, str]:
-        """Ignore this element and children."""
-        return {"x-ignore": ""}
-    
-    def ignore_self(self) -> dict[str, str]:
-        """Ignore only this element, not children."""
-        return {"x-ignore.self": ""}
-    
-    def key(self, expr: str) -> dict[str, str]:
-        """Unique key for x-for items (for efficient DOM updates)."""
-        return {"x-key": expr}
-    
-    def id(self, expr: str | list[str]) -> dict[str, str]:
-        """Generate scoped IDs for accessibility."""
-        value = expr if isinstance(expr, str) else _to_js(expr)
-        return {"x-id": value}
-    
-    def modelable(self, expr: str) -> dict[str, str]:
-        """Make component property bindable with x-model."""
-        return {"x-modelable": expr}
-    
-    def effect(self, expr: str) -> dict[str, str]:
-        """Side effect that re-runs when dependencies change."""
-        return {"x-effect": expr}
-    
-    def teleport(self, target: str) -> dict[str, str]:
-        """Teleport content to selector."""
-        return {"x-teleport": target}
-    
-    # Plugin directives (require corresponding Alpine plugins)
-    def intersect(self, expr: str) -> dict[str, str]:
-        """Intersection observer (requires Alpine intersect plugin)."""
-        return {"x-intersect": expr}
-    
-    def mask(self, expr: str) -> dict[str, str]:
-        """Input masking (requires Alpine mask plugin)."""
-        return {"x-mask": expr}
-    
-    def trap(self, expr: str) -> dict[str, str]:
-        """Focus trapping (requires Alpine focus plugin)."""
-        return {"x-trap": expr}
-    
-    def collapse(self) -> dict[str, str]:
-        """Collapse animation (requires Alpine collapse plugin)."""
-        return {"x-collapse": ""}
-    
-    # Sub-namespaces
     @property
     def bind(self) -> _BindNamespace:
-        """Bind attributes namespace."""
+        """x-bind: Bind attributes namespace."""
         return _BindNamespace()
     
     @property
+    def on(self) -> _EventNamespace:
+        """x-on: Event handlers (@shorthand available via Alpine.at)."""
+        return _EventNamespace()
+    
+    def text(self, expr: str) -> dict[str, str]:
+        """x-text: Set text content."""
+        return {"x-text": expr}
+    
+    def html(self, expr: str) -> dict[str, str]:
+        """x-html: Set HTML content."""
+        return {"x-html": expr}
+    
+    @property
     def model(self) -> _ModelNamespace:
-        """Two-way binding namespace."""
+        """x-model: Two-way binding namespace."""
         return _ModelNamespace()
+    
+    def modelable(self, expr: str) -> dict[str, str]:
+        """x-modelable: Make component property bindable with x-model."""
+        return {"x-modelable": expr}
+    
+    def for_(self, expr: str) -> dict[str, str]:
+        """x-for: Loop over items."""
+        return {"x-for": expr}
     
     @property
     def transition(self) -> _TransitionNamespace:
-        """Transition namespace."""
+        """x-transition: Transition namespace."""
         return _TransitionNamespace()
+    
+    def effect(self, expr: str) -> dict[str, str]:
+        """x-effect: Side effect that re-runs when dependencies change."""
+        return {"x-effect": expr}
+    
+    def ignore(self) -> dict[str, str]:
+        """x-ignore: Ignore this element and children."""
+        return {"x-ignore": ""}
+    
+    def ref(self, name: str) -> dict[str, str]:
+        """x-ref: Reference to element."""
+        return {"x-ref": name}
+    
+    def cloak(self) -> dict[str, str]:
+        """x-cloak: Hide until Alpine loads."""
+        return {"x-cloak": ""}
+    
+    def teleport(self, target: str) -> dict[str, str]:
+        """x-teleport: Teleport content to selector."""
+        return {"x-teleport": target}
+    
+    def if_(self, expr: str) -> dict[str, str]:
+        """x-if: Conditionally render element (DOM)."""
+        return {"x-if": expr}
+    
+    def id(self, expr: str | list[str]) -> dict[str, str]:
+        """x-id: Generate scoped IDs for accessibility."""
+        value = expr if isinstance(expr, str) else _to_js(expr)
+        return {"x-id": value}
+    
+    def key(self, expr: str) -> dict[str, str]:
+        """x-key: Unique key for x-for items (for efficient DOM updates)."""
+        return {"x-key": expr}
     
     # Fallback for custom directives
     def __getattr__(self, name: str) -> Callable[[str], dict[str, str]]:

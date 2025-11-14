@@ -102,7 +102,6 @@ def dropdown_menu():
         class_="p-6 border rounded-lg bg-white shadow-sm"
     )
 
-
 def form_validation():
     """Form with validation."""
     return Div(
@@ -182,7 +181,7 @@ def modal_dialog():
                 class_="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-xl max-w-md z-10"
             ),
             **Alpine.x.show("isOpen"),
-            class_="fixed inset-0 z-50"
+            class_="fixed inset-0 z-50",
         ),
         **(Alpine.x.data({"isOpen": False}) | Alpine.at.keydown.escape.window("isOpen = false")),
         class_="p-6 border rounded-lg bg-white shadow-sm"
