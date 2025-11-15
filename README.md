@@ -1,7 +1,7 @@
 # Airpine 🏔️
 
 > [!WARNING]
-> I this is in early dev.  Could be rewrites, breaking changes, bugs, and more.
+> I this is in early dev.  Could be rewrites, breaking changes, bugs, and more.  It's largely AI Written with only minimal checks and tests.  Think of it more as a brainstorm idea than a library.  If youw ant to see it a reality, i'd love to chat though!
 
 **Alpine.js integration for the Air framework with excellent Python DX**
 
