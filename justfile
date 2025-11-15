@@ -43,6 +43,6 @@ repl:
     uv run python -i -c "from airpine import Alpine, RawJS; print('Alpine and RawJS imported')"
 
 # Build the package
-build:
+publish:
     uv build
     uv publish

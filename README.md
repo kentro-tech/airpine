@@ -1,5 +1,8 @@
 # Airpine 🏔️
 
+> [!WARNING]
+> I this is in early dev.  Could be rewrites, breaking changes, bugs, and more.
+
 **Alpine.js integration for the Air framework with excellent Python DX**
 
 Airpine provides a Pythonic, type-safe API for working with Alpine.js directives in [Air](https://github.com/feldroy/air) applications. Get excellent IDE autocomplete, natural chained syntax, and type-safe modifiers.

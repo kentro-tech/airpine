@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "airpine"
-version = "0.2.0"
+version = "0.2.2"
 description = "Alpine.js integration for Air framework with excellent DX"
 readme = "README.md"
 requires-python = ">=3.11"
